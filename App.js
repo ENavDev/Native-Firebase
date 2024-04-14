@@ -30,14 +30,14 @@ export default function App() {
     tipo: ''
   });
 
-  function handleInputChange(name, value) {
+  const handleInputChange =(name, value) =>{
     setPlant(prevPlant => ({
       ...prevPlant,
       [name]: value
     }));
   }
 
-  function WritePlantData() {
+ const WritePlantData=()=> {
     set(ref(database, 'Plantas/' + plant.Nombre_c), {
       Nombre_c: plant.Nombre_c,
       nombre: plant.nombre,
@@ -59,7 +59,7 @@ export default function App() {
     planta: ''
   });
 
-  function handleInputChangeP(name, value) {
+  const handleInputChangeP =(name, value)=> {
     setPedido(prevPedido => ({
       ...prevPedido,
       [name]: value
@@ -67,7 +67,7 @@ export default function App() {
   }
   
 
-  function WritePedido() {
+  const WritePedido =()=> {
     set(ref(database, 'Pedido/' + pedido.planta), {
       fechaSolicitud: pedido.fechaSolicitud.toString(),
       FechaAprobacion: pedido.FechaAprobacion,
