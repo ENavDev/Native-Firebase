@@ -1,9 +1,8 @@
 import { StatusBar } from 'expo-status-bar';
 import { useEffect, useState } from 'react';
-import { StyleSheet, Text, View, TextInput, Button } from 'react-native';
+import { StyleSheet, Text, View, TextInput, Button, Picker, ScrollView } from 'react-native';
 import { initializeApp } from "firebase/app";
-import { getDatabase, ref, set } from "firebase/database";
-// import Pedido from './Pedido';
+import { getDatabase, ref, set, get } from "firebase/database";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBgrjCk3gNJPIyDrePsULHFOj5ATJmvSf8",
@@ -16,12 +15,10 @@ const firebaseConfig = {
   databaseURL: "https://parcial-61ab0-default-rtdb.firebaseio.com/"
 };
 
-// Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const database = getDatabase(app);
 
 export default function App() {
-
   const [plant, setPlant] = useState({
     Nombre_c: '',
     nombre: '',
@@ -30,14 +27,17 @@ export default function App() {
     tipo: ''
   });
 
-  const handleInputChange =(name, value) =>{
+ 
+
+
+  const handleInputChange = (name, value) => {
     setPlant(prevPlant => ({
       ...prevPlant,
       [name]: value
     }));
   }
 
- const WritePlantData=()=> {
+  const WritePlantData = () => {
     set(ref(database, 'Plantas/' + plant.Nombre_c), {
       Nombre_c: plant.Nombre_c,
       nombre: plant.nombre,
@@ -51,7 +51,6 @@ export default function App() {
     });
   }
 
-
   const [pedido, setPedido] = useState({
     fechaSolicitud: new Date(),
     FechaAprobacion: '',
@@ -59,15 +58,57 @@ export default function App() {
     planta: ''
   });
 
-  const handleInputChangeP =(name, value)=> {
-    setPedido(prevPedido => ({
-      ...prevPedido,
-      [name]: value
-    }));
-  }
-  
+  const [plantas, setPlantas] = useState([]);
+  useEffect(() => {
+    const obtenerPlantas = async () => {
+      try {
+        const snapshot = await get(ref(database, 'Plantas'));
+        if (snapshot.exists()) {
+          const plantasData = snapshot.val();
+          const plantasArray = Object.keys(plantasData).map(key => ({
+            id: key,
+            ...plantasData[key]
+          }));
+          setPlantas(plantasArray);
+        } else {
+          console.log("No hay datos de plantas disponibles");
+        }
+      } catch (error) {
+        console.error("Error al obtener las plantas:", error);
+      }
+    };
 
-  const WritePedido =()=> {
+    obtenerPlantas();
+  }, []);
+
+  const handleInputChangeP = (name, value) => {
+    if (name === 'planta') {
+      if (value !== undefined && value !== null && value !== '') {
+        setPedido(prevPedido => ({
+          ...prevPedido,
+          [name]: value
+        }));
+      }
+    } else {
+      setPedido(prevPedido => ({
+        ...prevPedido,
+        [name]: value
+      }));
+    }
+  }
+
+  const [selectedPlant, setSelectedPlant] = useState(null);
+  const handlePlantSelection = (value) => {
+    const selected = plantas.find(planta => planta.nombre === value);
+    setSelectedPlant(selected);
+  }
+
+  const WritePedido = () => {
+    if (!pedido.planta) {
+      alert('Por favor, seleccione una planta antes de hacer el pedido');
+      return; 
+    }
+
     set(ref(database, 'Pedido/' + pedido.planta), {
       fechaSolicitud: pedido.fechaSolicitud.toString(),
       FechaAprobacion: pedido.FechaAprobacion,
@@ -78,64 +119,52 @@ export default function App() {
     }).catch(error => {
       console.error('Error al crear el pedido:', error);
     });
+    if (selectedPlant) {
+      const plantInfo = `Nombre Científico: ${selectedPlant.Nombre_c}\nNombre: ${selectedPlant.nombre}\nCódigo: ${selectedPlant.codigo}\nStock: ${selectedPlant.stock}\nTipo: ${selectedPlant.tipo}`;
+      alert(plantInfo);
+    }
   }
 
-
-
   return (
-    <View style={styles.container}>
-      {/* Formulario para ingresar la planta */}
+    <ScrollView contentContainerStyle={styles.container}>
       <View style={styles.formContainer}>
         <Text style={styles.h1}>Ingrese su planta</Text>
         <TextInput
           style={styles.input}
-          placeholder="Nombre cientifico"
+          placeholder="Nombre científico"
           value={plant.Nombre_c}
           onChangeText={(value) => handleInputChange('Nombre_c', value)}
         />
         <TextInput
           style={styles.input}
-          placeholder="nombre"
+          placeholder="Nombre"
           value={plant.nombre}
           onChangeText={(value) => handleInputChange('nombre', value)}
         />
         <TextInput
           style={styles.input}
-          placeholder="codigo"
+          placeholder="Código"
           value={plant.codigo}
           onChangeText={(value) => handleInputChange('codigo', value)}
         />
         <TextInput
           style={styles.input}
-          placeholder="stock"
+          placeholder="Stock"
           value={plant.stock}
           onChangeText={(value) => handleInputChange('stock', value)}
         />
         <TextInput
           style={styles.input}
-          placeholder="tipo"
+          placeholder="Tipo"
           value={plant.tipo}
           onChangeText={(value) => handleInputChange('tipo', value)}
         />
-        <Button title="Guardar" onPress={WritePlantData} />
+        <Button title="Guardar Planta" onPress={WritePlantData} />
       </View>
 
-      {/* Formulario para ingresar los detalles del pedido */}
       <View style={styles.formContainer}>
         <Text style={styles.h1}>Ingrese los detalles del pedido</Text>
-
-        <Text>Fecha de solicitud</Text>
-
-        <TextInput
-          style={styles.input}
-          placeholder="Fecha de solicitud (ddd/mmm/yyyy)"
-          value={pedido.fechaSolicitud.toLocaleDateString('en-US', {
-            weekday: 'short',
-            month: 'short',
-            year: 'numeric'
-          })}
-          editable={false}
-        />
+        <Text>Fecha de solicitud: {pedido.fechaSolicitud.toLocaleDateString()}</Text>
         <TextInput
           style={styles.input}
           placeholder="Fecha de aprobación"
@@ -148,30 +177,38 @@ export default function App() {
           value={pedido.FechaEntrega}
           onChangeText={(value) => handleInputChangeP('FechaEntrega', value)}
         />
-        
-        <TextInput
-          style={styles.input}
-          placeholder="Planta"
-          value={pedido.planta}
-          onChangeText={(value) => handleInputChangeP('planta', value)} // Actualizar la función a handleInputChangeP
-        />
-        <Button title="Guardar Pedido" onPress={WritePedido} style={styles.button} />
-      </View>
+        <Picker
+          selectedValue={pedido.planta}
+          style={styles.picker}
+          onValueChange={(value) => {
+            handleInputChangeP('planta', value);
+            handlePlantSelection(value);
+          }}
+        >
+          <Picker.Item label="Seleccione una planta" value="" />
+          {plantas.map(planta => (
+            <Picker.Item key={planta.id} label={planta.nombre} value={planta.nombre} />
+          ))}
+        </Picker>
 
+        <Button title="Guardar Pedido" onPress={WritePedido} />
+      </View>
       <StatusBar style="auto" />
-    </View>
+    </ScrollView>
   );
 }
+
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
+    flexGrow: 1,
     backgroundColor: '#fff',
     alignItems: 'center',
     justifyContent: 'center',
-    flexDirection: 'row', // Cambiado para alinear los formularios horizontalmente
+    paddingVertical: 20,
   },
   formContainer: {
-    width: '40%', // Reducido el ancho del contenedor del formulario
+    width: '80%',
+    marginBottom: 20,
     padding: 20,
     backgroundColor: '#f0f0f0',
     borderRadius: 10,
@@ -183,26 +220,24 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
     elevation: 5,
-    marginRight: 10, // Agregado margen derecho para separar los formularios
+  },
+  h1: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    textAlign: 'center',
   },
   input: {
-    height: 40, // Reducido el alto de los TextInput
+    height: 40,
     borderColor: 'black',
     borderBottomWidth: 1,
     marginBottom: 10,
     paddingHorizontal: 10,
     borderRadius: 5,
   },
-  h1: {
-    fontSize: 32, // Cambiando el tamaño del texto a 32 puntos
-    fontWeight: 'bold', // Negrita
-    marginBottom: 20, // Espacio inferior
-  },
-  button: {
-    backgroundColor: '#007bff',
-    padding: 15,
+  picker: {
+    height: 40,
     borderRadius: 5,
-    marginTop: 25,
+    marginBottom: 10,
   },
 });
-
